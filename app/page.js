@@ -6,20 +6,23 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
+import { decompressIndices } from "../lib/utils";
 
 export default function Home() {
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [exportNumber, setExportNumber] = useState("");
+  const [exportNumber1, setExportNumber1] = useState();
+  const [exportNumber2, setExportNumber2] = useState();
+
   const [exportType, setExportType] = useState(1);
+  const [visible, setVisible] = useState(2);
   const [noteText, setNoteText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const qrContainerRef = useRef(null);
 
-  const currentUrl =
-    phoneNumber.length === 11
-      ? `${window.location.origin}/track/${phoneNumber}`
-      : "";
+  const currentUrl = phoneNumber
+    ? `${window.location.origin}/track/${phoneNumber}`
+    : "";
 
   const saveQRCodeWithNote = async () => {
     if (!qrContainerRef.current) return;
@@ -138,12 +141,12 @@ export default function Home() {
   };
 
   const generateExcel = async () => {
-    if (!exportNumber) {
+    if (!exportNumber1) {
       return;
     }
 
     setIsProcessing(true);
-    const res = await fetch(`/api/export/${exportNumber}?type=${exportType}`);
+    const res = await fetch(`/api/export/${exportNumber1}?type=${exportType}`);
     // return;
     if (!res.ok) {
       console.error("Failed to fetch Excel file");
@@ -158,7 +161,7 @@ export default function Home() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${exportNumber}차(${
+    a.download = `${exportNumber1}차(${
       exportType === 1 ? "평양" : "신의주"
     }).xlsx`; // filename
     document.body.appendChild(a);
@@ -169,27 +172,38 @@ export default function Home() {
     setIsProcessing(false);
   };
 
+  const updatePages = async () => {
+    setIsProcessing(true);
+    const numbers = decompressIndices(exportNumber2);
+    for (const num of numbers) {
+      const res = await fetch(`/api/archive/${num}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_archive: visible === 1 ? false : true }),
+      });
+
+      console.log('=============', res);
+    }
+    setIsProcessing(false);
+  };
+
   return (
     <div className="max-w-md mx-auto space-y-8">
+      <h2 className="font-bold mb-3 text-lg">물자추적</h2>
       <div className="space-y-2">
-        <Label htmlFor="phone">Phone Number</Label>
         <Input
           id="phone"
-          type="tel"
-          placeholder="Enter 11-digit phone number"
+          placeholder="전화번호 혹은 단위명을 입력하십시오"
           value={phoneNumber}
-          onChange={(e) =>
-            setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 11))
-          }
+          onChange={(e) => setPhoneNumber(e.target.value)}
           pattern="[0-9]{11}"
         />
       </div>
 
       {phoneNumber.length > 0 ? (
         <div className="flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow border-2 border-blue-100">
-          <h2 className="text-xl font-semibold mb-4 text-blue-800">
-            Scan to Track
-          </h2>
           <div
             ref={qrContainerRef}
             className="p-4 bg-white rounded-lg border border-blue-200"
@@ -213,40 +227,86 @@ export default function Home() {
               className="w-full"
               variant="outline"
             >
-              Save QR Code
+              QR Code 보관
             </Button>
           </div>
         </div>
       ) : (
         <div />
       )}
-
+      <hr />
+      <h2 className="font-bold mb-3 text-lg">문건작성</h2>
       <div className="space-y-2">
-        <Label htmlFor="phone">Export Label</Label>
-        <div className="flex items-center gap-2">
-          <Input
-            id="exportId"
-            type="number"
-            className={"flex-1"}
-            placeholder="Enter export label"
-            value={exportNumber}
-            onChange={(e) =>
-              setExportNumber(e.target.value.replace(/\D/g, "").slice(0, 11))
-            }
-          />
-          <Select
-            id="exportType"
-            placeholder="Enter export type"
-            value={exportType}
-            onChange={(e) => setExportType(e.target.value)}
-          >
-            <option value={1}>평양</option>
-            <option value={2}>신의주</option>
-          </Select>
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2 flex-1">
+            <Label htmlFor="phone">발송차수:</Label>
+            <Input
+              id="exportId"
+              type="number"
+              className={"flex-1"}
+              value={exportNumber1}
+              onChange={(e) =>
+                setExportNumber1(e.target.value.replace(/\D/g, ""))
+              }
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-1">
+            <Label htmlFor="phone">문건형식:</Label>
+            <Select
+              id="exportType"
+              className={"flex-1"}
+              value={exportType}
+              onChange={(e) => setExportType(e.target.value)}
+            >
+              <option value={1}>평양</option>
+              <option value={2}>신의주</option>
+            </Select>
+          </div>
         </div>
 
-        <Button onClick={generateExcel} className="w-full" variant="outline" disabled={isProcessing}>
-          Export
+        <Button
+          onClick={generateExcel}
+          className="w-full cursor-pointer"
+          variant="outline"
+          disabled={isProcessing}
+        >
+          실행
+        </Button>
+      </div>
+      <hr />
+      <h2 className="font-bold mb-3 text-lg">자료관리</h2>
+      <div className="space-y-2">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2 flex-1">
+            <Label htmlFor="phone">발송차수:</Label>
+            <Input
+              id="exportId"
+              className={"flex-1"}
+              value={exportNumber2}
+              onChange={(e) => setExportNumber2(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-1">
+            <Label htmlFor="phone">상태:</Label>
+            <Select
+              id="exportType"
+              className={"flex-1"}
+              value={visible}
+              onChange={(e) => setVisible(e.target.value)}
+            >
+              <option value={1}>보이기</option>
+              <option value={2}>숨기기</option>
+            </Select>
+          </div>
+        </div>
+
+        <Button
+          onClick={updatePages}
+          className="w-full cursor-pointer"
+          variant="outline"
+          disabled
+        >
+          실행
         </Button>
       </div>
     </div>

@@ -73,6 +73,8 @@ export async function GET(req, { params }) {
       sheet.getCell(`B${rowIndex}`).value = itemData[0].company;
       sheet.getCell(`C${rowIndex}`).value = itemData.length;
       sheet.getCell(`D${rowIndex}`).value = readableLabel;
+
+      sheet.getCell(`E${rowIndex}`).value = [...new Set(itemData.map(item => item.item))].filter(item => item).join(", ");
       sheet.getCell(`F${rowIndex}`).value = itemData[0].receiver;
       sheet.getCell(`G${rowIndex}`).value = itemData[0].receiverPhone;
 
